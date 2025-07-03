@@ -1,1 +1,12 @@
-/target/
+# Java build folders
+**/target/
+
+# Node modules
+frontend/dashboard-app/node_modules/
+
+# Environment variables
+.env
+
+# IDE
+.idea/
+*.iml
