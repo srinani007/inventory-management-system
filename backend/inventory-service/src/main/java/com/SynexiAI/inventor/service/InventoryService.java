@@ -46,4 +46,27 @@ public class InventoryService {
     public InventoryItem addItem(InventoryItem item) {
         return repository.save(item);
     }
+
+    public InventoryItemDto updateItem(Long id, InventoryItemDto dto) {
+        InventoryItem existingItem = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Item not found"));
+
+        existingItem.setName(dto.getName());
+        existingItem.setSkuCode(dto.getSkuCode());
+        existingItem.setQuantityAvailable(dto.getQuantityAvailable());
+        existingItem.setQuantityReserved(dto.getQuantityReserved());
+        existingItem.setReorderLevel(dto.getReorderLevel());
+        existingItem.setLocation(dto.getLocation());
+        existingItem.setExpiryDate(dto.getExpiryDate());
+
+        InventoryItem updatedItem = repository.save(existingItem);
+        return mapper.toDto(updatedItem);
+    }
+
+    public InventoryItemDto getItemBySkuCode(String skuCode) {
+        InventoryItem item = repository.findBySkuCode(skuCode)
+                .orElseThrow(() -> new RuntimeException("Item not found with SKU code: " + skuCode));
+        return mapper.toDto(item);
+    }
+
 }

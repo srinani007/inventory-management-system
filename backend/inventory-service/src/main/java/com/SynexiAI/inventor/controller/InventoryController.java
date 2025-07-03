@@ -1,10 +1,13 @@
 package com.SynexiAI.inventor.controller;
 
 import com.SynexiAI.inventor.dto.InventoryItemDto;
+import com.SynexiAI.inventor.exception.ItemNotFoundException;
 import com.SynexiAI.inventor.model.InventoryItem;
 import com.SynexiAI.inventor.repository.InventoryRepository;
 import com.SynexiAI.inventor.service.InventoryMappingService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/inventory")
 @CrossOrigin(origins = "http://localhost:5173")
+@Tag(name = "Inventory API", description = "Manage inventory items")
 public class InventoryController {
     private final InventoryRepository repo;
     private final InventoryMappingService mappingService;
@@ -38,6 +42,7 @@ public class InventoryController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CacheEvict(value = "inventoryAll", allEntries = true)
     public InventoryItemDto create(@Valid @RequestBody InventoryItemDto dto) {
         InventoryItem entity = mappingService.toEntity(dto);
         InventoryItem saved = repo.save(entity);
@@ -55,18 +60,40 @@ public class InventoryController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @CacheEvict(value = "inventoryAll", allEntries = true)
     public InventoryItemDto update(
             @PathVariable Long id,
             @Valid @RequestBody InventoryItemDto dto) {
 
         InventoryItem existing = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Not found"));
+                .orElseThrow(() ->  new ItemNotFoundException("Item not found with ID: " + id));
         // copy fields (or use mapping service)
         existing.setSkuCode(dto.getSkuCode());
         existing.setName(dto.getName());
         existing.setQuantityAvailable(dto.getQuantityAvailable());
+        existing.setQuantityReserved(dto.getQuantityReserved());
+        existing.setReorderLevel(dto.getReorderLevel());
+        existing.setLocation(dto.getLocation());
+        existing.setExpiryDate(dto.getExpiryDate());
         // … other fields …
         InventoryItem saved = repo.save(existing);
         return mappingService.toDto(saved);
+    }
+
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public void delete(@PathVariable Long id) {
+        repo.deleteById(id);
+    }
+
+
+    @GetMapping("/sku/{skuCode}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAREHOUSE_STAFF')")
+    @CacheEvict(value = "inventoryAll", allEntries = true)
+    public InventoryItemDto getBySkuCode(@PathVariable String skuCode) {
+        InventoryItem item = repo.findBySkuCode(skuCode)
+                .orElseThrow(() -> new ItemNotFoundException("Item not found with SKU code: " + skuCode));
+        return mappingService.toDto(item);
     }
 }

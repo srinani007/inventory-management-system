@@ -1,32 +1,44 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('jwt') || null);
-  const [roles, setRoles] = useState(() => {
-    const stored = localStorage.getItem('roles');
-    return stored ? JSON.parse(stored) : [];
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem('auth');
+    return stored ? JSON.parse(stored) : null;
   });
 
-  // Call this after login
-  function login(jwt, userRoles) {
-    localStorage.setItem('jwt', jwt);
-    localStorage.setItem('roles', JSON.stringify(userRoles));
-    setToken(jwt);
-    setRoles(userRoles);
-  }
+  const login = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const userData = {
+        token,
+        username: payload.sub,
+        roles: payload.roles || [],
+      };
+      localStorage.setItem('auth', JSON.stringify(userData));
+      localStorage.setItem('token', token); // ✅ For Axios interceptor
+      setUser(userData);
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+    }
+  };
 
-  function logout() {
-    localStorage.removeItem('jwt');
-    localStorage.removeItem('roles');
-    setToken(null);
-    setRoles([]);
-  }
+  const logout = () => {
+    localStorage.removeItem('auth');
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+
+  const value = { user, login, logout };
 
   return (
-    <AuthContext.Provider value={{ token, roles, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
 }

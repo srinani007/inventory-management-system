@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { utils, writeFile } from 'xlsx';
 import { Bar, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Title } from 'chart.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import LowStockBadge from '../components/LowStockBadge';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Title);
-
 
 export default function InventoryList() {
   const [items, setItems] = useState([]);
@@ -18,14 +18,17 @@ export default function InventoryList() {
   const [loading, setLoading] = useState(true);
   const itemsPerPage = 6;
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    api.get('/inventory').then(res => {
-      setItems(res.data);
-      setFilteredItems(res.data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    api.get('/inventory')
+      .then(res => {
+        setItems(res.data);
+        setFilteredItems(res.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [location.pathname]);
 
   const handleSearch = (e) => {
     const term = e.target.value;
@@ -55,10 +58,32 @@ export default function InventoryList() {
 
   const chartOptions = {
     responsive: true,
+    maintainAspectRatio: false, // this is crucial
     plugins: {
-      legend: { position: 'top' },
-      tooltip: { enabled: true },
-      title: { display: true, text: 'Inventory Overview' },
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#ccc',
+        },
+      },
+      title: {
+        display: true,
+        text: 'Inventory Overview',
+        color: '#fff',
+        font: {
+          size: 18,
+        },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#bbb' },
+        grid: { color: '#333' },
+      },
+      y: {
+        ticks: { color: '#bbb' },
+        grid: { color: '#333' },
+      },
     },
   };
 
@@ -80,63 +105,96 @@ export default function InventoryList() {
         label: 'Reorder Level',
         data: filteredItems.map(item => item.reorderLevel),
         borderColor: 'rgba(16, 185, 129, 1)',
+        borderWidth: 2,
         fill: false,
+        tension: 0.3,
       },
     ],
   };
 
-  if (loading) return <p className="p-4 text-center" aria-live="polite">Loading inventory...</p>;
+  if (loading) return <p className="p-6 text-center text-lg">Loading inventory...</p>;
 
   return (
-    <div className="p-4" role="main" aria-label="Inventory List Page">
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-bold">Inventory</h1>
-        <div className="space-x-2">
-          <button onClick={() => navigate('/inventory/new')} className="bg-green-500 text-white px-4 py-2 rounded" aria-label="Add New Inventory Item">+ New Item</button>
-          <button onClick={exportToCSV} className="bg-blue-500 text-white px-4 py-2 rounded" aria-label="Export Inventory to CSV">Export CSV</button>
+    <div className="min-h-screen py-10 px-4 md:px-8 lg:px-12 bg-[url('/background.svg')] bg-cover">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+          <h1 className="text-3xl font-extrabold text-teal-300 mb-4 md:mb-0">📦 Inventory Dashboard</h1>
+          <div className="flex flex-wrap gap-3 justify-center md:justify-end">
+            <button onClick={() => navigate('/inventory/new')} className="bg-green-500 hover:bg-green-600 text-white px-5 py-2 rounded shadow">
+              ➕ Add New
+            </button>
+            <button onClick={() => navigate('/inventory/reports')} className="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2 rounded shadow">
+              📊 Reports
+            </button>
+            <button onClick={exportToCSV} className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded shadow">
+              📤 Export
+            </button>
+          </div>
         </div>
-      </div>
-      <input
-        type="text"
-        placeholder="Search by name or SKU"
-        value={search}
-        onChange={handleSearch}
-        className="border p-2 mb-4 w-full"
-        aria-label="Search inventory by name or SKU"
-      />
-      {filteredItems.length === 0 ? (
-        <p className="text-center text-gray-500" aria-live="polite">No inventory items found.</p>
-      ) : (
-        <>
-          <div className="mb-8">
-            <Bar data={chartData} options={chartOptions} />
-          </div>
-          <div className="mb-8">
-            <Line data={lineChartData} options={chartOptions} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginatedItems.map(item => (
-              <div key={item.id} onClick={() => navigate(`/inventory/${item.id}`)} className="p-4 border rounded cursor-pointer hover:shadow" tabIndex={0} onKeyPress={(e) => e.key === 'Enter' && navigate(`/inventory/${item.id}`)}>
-                <h2 className="font-semibold">{item.name}</h2>
-                <p>SKU: {item.skuCode}</p>
-                <p>Stock: {item.quantityAvailable}</p>
+
+        <input
+          type="text"
+          placeholder="🔍 Search by name or SKU..."
+          value={search}
+          onChange={handleSearch}
+          className="w-full mb-8 px-4 py-2 border border-gray-700 rounded-md shadow-sm bg-gray-900 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-teal-400"
+        />
+
+        {filteredItems.length === 0 ? (
+          <p className="text-center text-gray-400">No inventory items found.</p>
+        ) : (
+          <>
+            <div className="flex flex-col md:flex-row justify-center items-start gap-8 mb-10 px-4">
+              {/* Quantity Available */}
+              <div className="bg-neutral-900 p-6 rounded-xl shadow-lg w-full md:w-[500px] max-w-[95vw] hover:scale-[1.01] transition">
+                <h2 className="text-lg font-semibold text-gray-200 mb-4 text-center">📊 Quantity Available</h2>
+                <div className="h-[300px]">
+                  <Bar data={chartData} options={chartOptions} />
+                </div>
               </div>
-            ))}
-          </div>
-          <div className="flex justify-center mt-4 space-x-2">
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1 border rounded ${currentPage === i + 1 ? 'bg-blue-600 text-white' : ''}`}
-                aria-current={currentPage === i + 1 ? 'page' : undefined}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+
+              {/* Reorder Level */}
+              <div className="bg-neutral-900 p-6 rounded-xl shadow-lg w-full md:w-[500px] max-w-[95vw] hover:scale-[1.01] transition">
+                <h2 className="text-lg font-semibold text-gray-200 mb-4 text-center">📈 Reorder Level</h2>
+                <div className="h-[300px]">
+                  <Line data={lineChartData} options={chartOptions} />
+                </div>
+              </div>
+            </div>
+
+
+            <div >
+              {paginatedItems.map(item => {
+                const isLowStock = item.quantityAvailable <= item.reorderLevel;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => navigate(`/inventory/${item.id}`)}
+                    className={` rounded border-2 cursor-pointer  ${isLowStock ? 'border-red-500' : 'border-transparent'}`}
+                  >
+                    <h3 className="text-xl font-bold text-white">{item.name}</h3>
+                    <p className="text-gray-400">SKU: <span className="font-mono">{item.skuCode}</span></p>
+                    <p className="text-gray-400">Stock: {item.quantityAvailable}</p>
+                    <LowStockBadge quantity={item.quantityAvailable} reorderLevel={item.reorderLevel} />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-center gap-2">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-1 rounded text-sm font-medium ${currentPage === i + 1 ? 'bg-teal-500 text-white' : ' text-gray-300 hover:bg-gray-700'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

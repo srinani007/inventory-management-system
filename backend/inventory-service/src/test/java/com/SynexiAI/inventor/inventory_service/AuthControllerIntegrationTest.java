@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,7 +62,7 @@ public class AuthControllerIntegrationTest {
         return SignupRequest.builder()
                 .username(username)
                 .password(password)
-                .roles(roles)
+                .roles(Collections.singleton(roles.toString()))
                 .build();
     }
 
@@ -114,7 +115,7 @@ public class AuthControllerIntegrationTest {
         SignupRequest request = new SignupRequest();
         request.setUsername("user_" + System.currentTimeMillis());
         request.setPassword("short"); // Invalid password
-        request.setRoles(Set.of("ROLE_USER"));
+        request.setRoles(Collections.singleton(Set.of("ROLE_USER").toString()));
 
         ResponseEntity<Map> response = restTemplate.postForEntity(
                 "/api/auth/signup",
@@ -180,7 +181,7 @@ public class AuthControllerIntegrationTest {
         SignupRequest request = new SignupRequest();
         request.setUsername("user_" + System.currentTimeMillis());
         request.setPassword("ValidPass123!");
-        request.setRoles(Set.of("ROLE_USER")); // Now should work
+        request.setRoles(Collections.singleton("ROLE_USER")); // Now should work
 
         ResponseEntity<UserDto> response = restTemplate.postForEntity(
                 "/api/auth/signup",
