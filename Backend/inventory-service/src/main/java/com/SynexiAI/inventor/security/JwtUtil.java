@@ -1,7 +1,6 @@
 package com.SynexiAI.inventor.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -14,23 +13,29 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtUtils {
+public class JwtUtil {
 
     private final Key key;
 
-    public JwtUtils(@Value("${jwt.secret}") String secret) {
+    public JwtUtil(@Value("${jwt.secret}") String secret,
+                   @Value("${jwt.expiration}") long expirationMs) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String extractUsername(String token) {
+    public String extractUsername(String token) throws JwtException {
         return extractClaims(token).getSubject();
     }
 
     public boolean isTokenValid(String token) {
-        return !extractClaims(token).getExpiration().before(new Date());
+        try {
+            Claims claims = extractClaims(token);
+            return claims.getExpiration().after(new Date());
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
-    public Claims extractClaims(String token) {
+    public Claims extractClaims(String token) throws JwtException {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
@@ -38,16 +43,16 @@ public class JwtUtils {
                 .getBody();
     }
 
-    public Set<SimpleGrantedAuthority> getAuthorities(String token) {
+    @SuppressWarnings("unchecked")
+    public Set<SimpleGrantedAuthority> getAuthorities(String token) throws JwtException {
         Claims claims = extractClaims(token);
         List<String> roles = claims.get("roles", List.class);
-
         if (roles == null) return Set.of();
-
-        return roles.stream()
-                .map(role -> new SimpleGrantedAuthority(role))
-                .collect(Collectors.toSet());
+        return roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toSet());
     }
 
+    // ✅ This method wraps validate + extract (used by filter)
+    public Claims validateToken(String token) throws JwtException {
+        return extractClaims(token); // Optionally log more here
+    }
 }
-
