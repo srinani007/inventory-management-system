@@ -20,10 +20,11 @@ export default function Dashboard() {
   const { user } = useAuth();
   const isAdminOrManager = user?.roles?.some(role => ['ROLE_ADMIN', 'ROLE_MANAGER'].includes(role));
   const [items, setItems] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/inventory')
+    api.get('/api/inventory')
       .then(res => {
         setItems(res.data);
         setIsLoading(false);
@@ -33,6 +34,13 @@ export default function Dashboard() {
         setIsLoading(false);
       });
   }, []);
+
+
+useEffect(() => {
+api.get('/api/orders')
+  .then(res => setOrders(res.data.reverse()))
+  .catch(() => setOrders([]));
+}, []);
 
   const lowStockItems = items.filter(item => item.quantityAvailable <= item.reorderLevel);
   const outOfStock = items.filter(item => item.quantityAvailable === 0);
@@ -99,6 +107,12 @@ export default function Dashboard() {
             label="Total Items"
             value={items.length}
             icon="📦"
+            trend="neutral"
+          />
+          <StatCard
+            label="Total Orders"
+            value={orders.length}
+            icon="🧾"
             trend="neutral"
           />
           <StatCard
@@ -180,6 +194,46 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Recent Orders Table */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">🧾 Recent Orders</h2>
+            <Link
+              to="/orders"
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              View All →
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">By</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {orders.slice(0, 5).map(order => (
+                  <tr key={order.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">{order.id}</td>
+                    <td className="px-6 py-4">{order.skuCode}</td>
+                    <td className="px-6 py-4">{order.quantity}</td>
+                    <td className={`px-6 py-4 ${order.status === 'CONFIRMED' ? 'text-green-600' : 'text-red-600'}`}>
+                      {order.status}
+                    </td>
+                    <td className="px-6 py-4">{order.placedBy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+
         {/* Recent Items Table */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8">
           <div className="flex justify-between items-center mb-4">
@@ -253,6 +307,22 @@ export default function Dashboard() {
             link="/inventory/reports"
             icon="📈"
           />
+          {(user?.roles?.includes('ROLE_MANAGER') || user?.roles?.includes('ROLE_WAREHOUSE_STAFF')) && (
+            <NavCard
+              title="Place Order"
+              desc="Submit a new order for stock items."
+              link="/orders/new"
+              icon="🛒"
+            />
+          )}
+          {user?.roles?.includes('ROLE_ADMIN') && (
+            <NavCard
+              title="Manage Users"
+              desc="View all registered users and their roles."
+              link="/users"
+              icon="🛡️"
+            />
+          )}
         </div>
       </div>
     </div>

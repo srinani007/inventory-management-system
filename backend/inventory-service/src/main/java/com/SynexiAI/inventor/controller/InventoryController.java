@@ -1,14 +1,19 @@
 package com.SynexiAI.inventor.controller;
 
+import com.SynexiAI.inventor.dto.InventoryDeductRequest;
 import com.SynexiAI.inventor.dto.InventoryItemDto;
 import com.SynexiAI.inventor.exception.ItemNotFoundException;
 import com.SynexiAI.inventor.model.InventoryItem;
 import com.SynexiAI.inventor.repository.InventoryRepository;
 import com.SynexiAI.inventor.service.InventoryMappingService;
+import com.SynexiAI.inventor.service.InventoryService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +27,9 @@ import java.util.stream.Collectors;
 public class InventoryController {
     private final InventoryRepository repo;
     private final InventoryMappingService mappingService;
+
+    @Autowired
+    private InventoryService inventoryService;
 
     public InventoryController(InventoryRepository repo,
                                InventoryMappingService mappingService) {
@@ -49,10 +57,11 @@ public class InventoryController {
         return mappingService.toDto(saved);
     }
 
-    @Cacheable(value = "inventory", key = "#id")
+    //@Cacheable(value = "inventory", key = "#id")
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAREHOUSE_STAFF')")
     public InventoryItemDto getOne(@PathVariable Long id) {
+
         InventoryItem item = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Item not found with id: " + id));
         return mappingService.toDto(item);
@@ -96,4 +105,12 @@ public class InventoryController {
                 .orElseThrow(() -> new ItemNotFoundException("Item not found with SKU code: " + skuCode));
         return mappingService.toDto(item);
     }
+
+    @PostMapping("/deduct")
+    //@PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAREHOUSE_STAFF')")
+    public ResponseEntity<Void> deductInventory(@RequestBody InventoryDeductRequest request) {
+        boolean success = inventoryService.deductStock(request.getSkuCode(), request.getQuantity());
+        return success ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
+
 }

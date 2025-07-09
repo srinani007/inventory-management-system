@@ -10,3 +10,7 @@ frontend/dashboard-app/node_modules/
 # IDE
 .idea/
 *.iml
+
+*.properties
+*.log
+

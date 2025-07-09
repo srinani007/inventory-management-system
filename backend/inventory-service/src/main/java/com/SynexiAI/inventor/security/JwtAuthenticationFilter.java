@@ -1,15 +1,14 @@
 package com.SynexiAI.inventor.security;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -21,58 +20,57 @@ import java.util.stream.Collectors;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtUtil jwtUtil;
+    private final JwtUtil jwtUtils;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
-        this.jwtUtil = jwtUtil;
+    public JwtAuthenticationFilter(JwtUtil jwtUtils) {
+        this.jwtUtils = jwtUtils;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain chain) throws IOException, ServletException {
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
-        // Skip filter for auth endpoints
-        if (request.getServletPath().startsWith("/api/auth/")) {
-            chain.doFilter(request, response);
+        String path = request.getServletPath();
+
+        // Skip Swagger, login, and public paths only
+        if (path.startsWith("/api/auth") ||
+                path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/error")) {
+            filterChain.doFilter(request, response);
             return;
         }
 
-        try {
-            String token = extractToken(request);
-            if (token == null) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing token");
-                return;
-            }
+        String authHeader = request.getHeader("Authorization");
 
-            Claims claims = jwtUtil.validateToken(token);
-            String username = claims.getSubject();
-
-            @SuppressWarnings("unchecked")
-            Set<SimpleGrantedAuthority> authorities = ((List<String>) claims.get("roles"))
-                    .stream()
-                    .map(SimpleGrantedAuthority::new)
-                    .collect(Collectors.toSet());
-
-            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                    username,
-                    null,
-                    authorities
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(authToken);
-            chain.doFilter(request, response);
-
-        } catch (JwtException e) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing token");
+            return;
         }
-    }
 
-    private String extractToken(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            return header.substring(7);
+        String jwt = authHeader.substring(7);
+
+        if (!jwtUtils.isTokenValid(jwt)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
+            return;
         }
-        return null;
+
+        Claims claims = jwtUtils.validateToken(jwt);
+        String username = claims.getSubject();
+
+        @SuppressWarnings("unchecked")
+        Set<SimpleGrantedAuthority> authorities = ((List<String>) claims.get("roles")).stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toSet());
+
+        UsernamePasswordAuthenticationToken authToken =
+                new UsernamePasswordAuthenticationToken(username, null, authorities);
+
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
+
+        filterChain.doFilter(request, response);
     }
 }
