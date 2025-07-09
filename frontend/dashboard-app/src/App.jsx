@@ -1,4 +1,3 @@
-// ✅ Clean App.jsx with layout delegation
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
@@ -6,9 +5,16 @@ import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
 import './app.css';
 
+// Context
 import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
+
+// Layout
 import Layout from './components/Layout';
+
+// Route Guards
+import PrivateRoute from './components/routes/PrivateRoute';
+import AdminRoute from './components/routes/AdminRoute';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -19,18 +25,12 @@ import InventoryList from './pages/InventoryList';
 import InventoryDetail from './pages/InventoryDetail';
 import InventoryForm from './pages/InventoryForm';
 import InventoryReports from './pages/InventoryReports';
-
-// Roles
-const ROLES = {
-  ADMIN: 'ROLE_ADMIN',
-  MANAGER: 'ROLE_MANAGER',
-  WAREHOUSE_STAFF: 'ROLE_WAREHOUSE_STAFF',
-  USER: 'ROLE_USER',
-};
+import UsersPage from './pages/UsersPage';
+import OrderForm from './pages/OrderForm';
+import OrdersPage from './pages/OrdersPage';
 
 export default function App() {
   return (
-
     <AuthProvider>
       <BrowserRouter>
         <ToastContainer position="top-right" autoClose={3000} />
@@ -40,70 +40,28 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-          {/* Protected Routes with shared layout */}
-          <Route element={<Layout />}>
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/inventory/reports"
-              element={
-                <ProtectedRoute>
-                  <InventoryReports />
-                </ProtectedRoute>
-              }
-            />
+          {/* Private Routes */}
+          <Route element={<PrivateRoute />}>
+            <Route element={<Layout />}>
+            <Route path="/users" element={<ProtectedRoute allowedRoles={['ROLE_ADMIN']}> <UsersPage /> </ProtectedRoute>} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/inventory/reports" element={<InventoryReports />} />
+              <Route path="/orders/new" element={<OrderForm />} />
+              <Route path="/orders" element={<OrdersPage />} />
 
+              <Route path="/inventory" element={<InventoryList />} />
+              <Route path="/inventory/:id" element={<InventoryDetail />} />
 
-            <Route
-              path="/inventory"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.WAREHOUSE_STAFF]}>
-                  <InventoryList />
-                </ProtectedRoute>
-              }
-            />
+              {/* Admin-only routes */}
+              <Route element={<AdminRoute />}>
+                <Route path="/inventory/new" element={<InventoryForm />} />
+                <Route path="/inventory/:id/edit" element={<InventoryForm isEditMode />} />
+                 <Route path="/users" element={<UsersPage />} />
+              </Route>
 
-            <Route
-              path="/inventory/:id"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.WAREHOUSE_STAFF]}>
-                  <InventoryDetail />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/inventory/new"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
-                  <InventoryForm />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/inventory/:id/edit"
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]}>
-                  <InventoryForm isEditMode />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Navigate to="/dashboard" replace />
-                </ProtectedRoute>
-              }
-            />
+              {/* Redirect / to dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Route>
           </Route>
 
           {/* Catch All */}
@@ -111,6 +69,5 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
-
   );
 }

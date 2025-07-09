@@ -5,9 +5,15 @@ import com.SynexiAI.inventor.model.InventoryItem;
 import com.SynexiAI.inventor.repository.InventoryRepository;
 import com.SynexiAI.inventor.service.InventoryMappingService;
 import com.SynexiAI.inventor.service.InventoryService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,5 +136,17 @@ class InventoryServiceTest {
         assertEquals("Item not found with SKU code: " + sku, exception.getMessage());
     }
 
+    @Test
+    void testObjectMapperWithLocalDate() throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        InventoryItemDto item = new InventoryItemDto();
+        item.setExpiryDate(LocalDate.now());
+        String json = mapper.writeValueAsString(item);
+
+        System.out.println(json); // ✅ You’ll see correct ISO date
+    }
 
 }
